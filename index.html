@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -34,31 +33,68 @@
     .wait {
       font-weight: bold;
     }
+    .closed {
+      color: red;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      text-align: center;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
   <h1>Tempo de Fila - Disney</h1>
   <div id="attractions">Carregando...</div>
+  <div id="error-message" class="error"></div>
 
   <script>
     async function fetchWaitTimes() {
-      const res = await fetch("https://queue-times.com/parks/6/queue_times.json");
-      const data = await res.json();
-      const rides = data.lands.flatMap(land => land.rides);
+      try {
+        const res = await fetch("https://queue-times.com/parks/6/queue_times.json");
 
-      rides.sort((a, b) => a.wait_time - b.wait_time);
+        // Verifique se a resposta da API é válida
+        if (!res.ok) {
+          throw new Error('Erro ao carregar dados da API');
+        }
 
-      const container = document.getElementById("attractions");
-      container.innerHTML = rides.map(ride => `
-        <div class="ride">
-          <div>${ride.name}</div>
-          <div class="wait">${ride.wait_time} min</div>
-        </div>
-      `).join("");
+        const data = await res.json();
+
+        // Verifica se a estrutura de dados é a esperada
+        if (!data.lands) {
+          throw new Error('Estrutura de dados inválida');
+        }
+
+        const rides = data.lands.flatMap(land => land.rides);
+
+        // Ordena as atrações pelo tempo de espera
+        rides.sort((a, b) => a.wait_time - b.wait_time);
+
+        const container = document.getElementById("attractions");
+        container.innerHTML = rides.map(ride => {
+          const isClosed = ride.wait_time === null || ride.wait_time === 0; // Verifica se a atração está fechada
+          return `
+            <div class="ride">
+              <div>${ride.name}</div>
+              <div class="wait ${isClosed ? 'closed' : ''}">
+                ${isClosed ? 'Fechado' : ride.wait_time + ' min'}
+              </div>
+            </div>
+          `;
+        }).join("");
+
+      } catch (error) {
+        // Exibe a mensagem de erro se algo der errado
+        console.error('Erro ao obter dados:', error);
+        const errorMessage = document.getElementById("error-message");
+        errorMessage.textContent = "Falha ao carregar os tempos de fila. Tente novamente mais tarde.";
+      }
     }
 
+    // Chama a função imediatamente e atualiza a cada 5 minutos
     fetchWaitTimes();
-    setInterval(fetchWaitTimes, 300000); // atualiza a cada 5 minutos
+    setInterval(fetchWaitTimes, 300000); // Atualiza a cada 5 minutos
   </script>
 </body>
 </html>
